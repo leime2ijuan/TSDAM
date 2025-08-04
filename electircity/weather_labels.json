@@ -1,0 +1,41 @@
+{
+  "buildings": [
+    {"building_id": "Hog_lodging_Brian", "weather_station": "Hog"},
+    {"building_id": "Hog_lodging_Nikki", "weather_station": "Hog"},
+    {"building_id": "Hog_lodging_Ora", "weather_station": "Hog"},
+    {"building_id": "Robin_lodging_Celia", "weather_station": "Robin"},
+    {"building_id": "Robin_lodging_Elmer", "weather_station": "Robin"},
+    {"building_id": "Robin_lodging_Renea", "weather_station": "Robin"},
+    
+    {"building_id": "Hog_health_Hisako", "weather_station": "Hog"},
+    {"building_id": "Hog_health_Jenny", "weather_station": "Hog"},
+    {"building_id": "Hog_health_Kesha", "weather_station": "Hog"},
+    {"building_id": "Rat_health_Gaye", "weather_station": "Rat"},
+    {"building_id": "Rat_health_Guy", "weather_station": "Rat"},
+    {"building_id": "Rat_health_Shane", "weather_station": "Rat"},
+    
+    {"building_id": "Rat_public_Chrissy", "weather_station": "Rat"},
+    {"building_id": "Eagle_public_Pearle", "weather_station": "Eagle"},
+    {"building_id": "Hog_public_Crystal", "weather_station": "Hog"},
+    {"building_id": "Hog_public_Kevin", "weather_station": "Hog"},
+    {"building_id": "Hog_public_Octavia", "weather_station": "Hog"},
+    {"building_id": "Rat_public_Roma", "weather_station": "Rat"},
+    
+    {"building_id": "Eagle_office_Ryan", "weather_station": "Eagle"},
+    {"building_id": "Rat_office_Tracy", "weather_station": "Rat"},
+    {"building_id": "Robin_office_Lindsay", "weather_station": "Robin"},
+    {"building_id": "Wolf_office_Bobbie", "weather_station": "Wolf"},
+    {"building_id": "Hog_office_Sung", "weather_station": "Hog"},
+    {"building_id": "Wolf_office_Cary", "weather_station": "Wolf"},
+    
+    {"building_id": "Hog_education_Hallie", "weather_station": "Hog"},
+    {"building_id": "Hog_education_Haywood", "weather_station": "Hog"},
+    {"building_id": "Hog_education_Janell", "weather_station": "Hog"},
+    {"building_id": "Hog_education_Rachael", "weather_station": "Hog"},
+    {"building_id": "Hog_education_Wayne", "weather_station": "Hog"},
+    {"building_id": "Robin_education_Zenia", "weather_station": "Robin"},
+      
+
+    {"building_id": "Gator_public_Leroy", "weather_station": "Gator"}
+  ]
+}
