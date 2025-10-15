@@ -1,29 +1,19 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
 
 class MultiScaleEncoder(nn.Module):
     """改进的多尺度特征编码器"""
     def __init__(self, input_dim, hidden_dim, num_scales=2):
-        # num_scales参数含义：表示特征提取的尺度数量。
-        # 2 表示“粗/细”两种尺度，3 则可进一步分为“粗/中/细”。
-#         粗粒度特征：捕获数据的整体模式和长期趋势
-# 中粒度特征：捕获数据的局部模式和中期变化
-# 细粒度特征：捕获数据的细节信息和短期波动
         super().__init__()
-        self.input_dim = input_dim          # 输入特征维度，例如6（5个天气特征加1个电力数据特征）
-        self.hidden_dim = hidden_dim        # 隐藏层维度，决定了特征表示的维度大小
-        self.scales = num_scales            # 多尺度分支的数量，每个分支独立抽取不同粒度的特征
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.scales = num_scales
         
-        # 输入投影层：将输入特征映射到隐藏层维度空间
         self.input_projection = nn.Linear(input_dim, hidden_dim)
         
-        # 多尺度特征提取层：为每个尺度创建独立的特征提取器
-        # 每个提取器由线性层、层归一化、ReLU激活和Dropout组成
-        # 每个尺度的 线性层 都有自己的 权重矩阵 和 偏置项。
-        # 每个尺度的 层归一化 层（nn.LayerNorm）也有自己的 缩放参数（gamma）和 偏移参数（beta）
-        # 共享ReLU 激活函数、Dropout 
         self.feature_extractors = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(hidden_dim, hidden_dim),
@@ -33,9 +23,6 @@ class MultiScaleEncoder(nn.Module):
             ) for _ in range(num_scales)
         ])
         
-        # 特征融合层：将所有尺度分支的输出特征拼接后进行融合
-        # 输入维度是 hidden_dim * num_scales（所有分支特征拼接后的维度）
-        # 输出维度映射回 hidden_dim，以便后续处理
         self.fusion = nn.Sequential(
             nn.Linear(hidden_dim * num_scales, hidden_dim),
             nn.LayerNorm(hidden_dim),
@@ -44,57 +31,99 @@ class MultiScaleEncoder(nn.Module):
         )
         
     def forward(self, x):
-        # 输入投影：将输入特征映射到隐藏层维度
         if x.size(-1) != self.hidden_dim:
             x = self.input_projection(x)
         
-        # 多尺度特征提取：每个尺度的提取器处理相同的输入，捕获不同粒度的特征
         multi_scale_features = []
         for extractor in self.feature_extractors:
             features = extractor(x)
             multi_scale_features.append(features)
         
-        # 特征拼接：将所有尺度的特征在最后一个维度上拼接
         concatenated = torch.cat(multi_scale_features, dim=-1)
-        
-        # 特征融合：通过线性层将拼接后的高维特征映射回隐藏层维度
         fused_features = self.fusion(concatenated)
         
         return fused_features
+
+
+class TemporalDependency(nn.Module):
+    """修复后的时间依赖模块"""
+    def __init__(self, hidden_dim=64, weather_dim=5, num_heads=4, dropout=0.3):
+        super().__init__()
+        # 确保hidden_dim能被num_heads整除
+        self.hidden_dim = (hidden_dim // num_heads) * num_heads
+        self.num_heads = num_heads
+        self.head_dim = self.hidden_dim // num_heads
+
+        # 使用1D卷积进行局部特征提取
+        self.q_conv = nn.Conv1d(self.hidden_dim, self.hidden_dim, kernel_size=3, padding=1, groups=num_heads)
+        self.k_conv = nn.Conv1d(self.hidden_dim, self.hidden_dim, kernel_size=3, padding=1, groups=num_heads)
+        self.v_conv = nn.Conv1d(self.hidden_dim, self.hidden_dim, kernel_size=3, padding=1, groups=num_heads)
+
+        # 天气特征处理
+        self.weather_fc = nn.Linear(weather_dim, self.hidden_dim)
+        
+        # 输出层
+        self.linear = nn.Linear(self.hidden_dim, self.hidden_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, F_scale, weather):
+        B, T, _ = F_scale.size()
+
+        # 转换维度用于卷积 [B, D, T]
+        Q = F_scale.permute(0, 2, 1)
+        K = F_scale.permute(0, 2, 1)
+        V = F_scale.permute(0, 2, 1)
+
+        # 应用卷积并恢复维度 [B, T, D]
+        Q_conv = self.q_conv(Q).permute(0, 2, 1)
+        K_conv = self.k_conv(K).permute(0, 2, 1)
+        V_conv = self.v_conv(V).permute(0, 2, 1)
+
+        # 天气偏置计算 - 修复这里，不需要额外的bias_fc层
+        W_embed = self.weather_fc(weather)  # [B, T, hidden_dim]
+        sim = torch.bmm(W_embed, W_embed.transpose(1, 2))  # [B, T, T]
+        g_bias = torch.tanh(sim / math.sqrt(self.hidden_dim))  # 直接计算，不使用bias_fc
+
+        # 注意力计算
+        scale = math.sqrt(self.head_dim)  # 使用head_dim而不是hidden_dim/num_heads
+        attn_logits = torch.bmm(Q_conv, K_conv.transpose(1, 2)) / scale
+        attn_logits = attn_logits + g_bias
+        attn_weights = torch.softmax(attn_logits, dim=-1)
+        attn_output = torch.bmm(attn_weights, V_conv)
+
+        output = self.linear(attn_output)
+        output = self.dropout(output)
+        return output
+
 
 class TimeSeriesEncoder(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_domains=7, num_layers=2, dropout=0.3):
         super().__init__()
         self.input_dim = input_dim
-        # 确保 hidden_dim 能被 num_heads (4) 整除，以适应多头注意力机制的要求
+        # 确保 hidden_dim 能被 num_heads (4) 整除
         self.hidden_dim = (hidden_dim // 4) * 4
         self.num_domains = num_domains
         
-        # 多尺度特征提取 - 关键修改：直接使用完整的hidden_dim
+        # 多尺度特征提取 - 使用统一的hidden_dim
         self.multi_scale_encoder = MultiScaleEncoder(
             input_dim=input_dim,
-            hidden_dim=64  # 这里硬编码为64，可能需要与hidden_dim保持一致或调整
+            hidden_dim=self.hidden_dim  # 修复：使用self.hidden_dim而不是硬编码64
         )
         
-        # 时间注意力层：使用多头注意力机制捕获时间序列中的依赖关系
-        # embed_dim：输入序列的特征维度
-        # num_heads：注意力头的数量，将特征维度分成多个头并行处理
-        # dropout：应用于注意力权重的dropout率
-        self.temporal_attention = nn.MultiheadAttention(
-            embed_dim=self.hidden_dim,
+        # 时间注意力层 - 使用修复后的TemporalDependency
+        self.temporal_dependency = TemporalDependency(
+            hidden_dim=self.hidden_dim,
+            weather_dim=input_dim - 1,
             num_heads=4,
             dropout=dropout
         )
         
-        # 改进的贝叶斯域自适应模块：处理不同领域之间的差异
-        # domain_mu：每个域的均值参数，用于贝叶斯采样
-        # domain_logvar：每个域的对数方差参数，用于贝叶斯采样
-        # domain_importance：每个域的重要性权重，用于平衡不同域的影响
+        # 贝叶斯域自适应参数
         self.domain_mu = nn.Parameter(torch.zeros(num_domains, self.hidden_dim))
         self.domain_logvar = nn.Parameter(torch.zeros(num_domains, self.hidden_dim))
         self.domain_importance = nn.Parameter(torch.ones(num_domains))
         
-        # 特征整合层：将多尺度特征和时间注意力特征融合
+        # 特征融合层
         self.feature_fusion = nn.Sequential(
             nn.Linear(self.hidden_dim * 2, self.hidden_dim),
             nn.ReLU(),
@@ -102,7 +131,7 @@ class TimeSeriesEncoder(nn.Module):
             nn.LayerNorm(self.hidden_dim)
         )
         
-        # 添加域适应基础网络：对贝叶斯采样后的特征进行进一步变换
+        # 域适应基础网络
         self.domain_adapter_base = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
@@ -110,74 +139,59 @@ class TimeSeriesEncoder(nn.Module):
         )
     
     def bayesian_domain_adapt(self, features, domain_idx=None):
-        # 贝叶斯域自适应方法：基于贝叶斯原理对特征进行域适应
         if domain_idx is not None:
-            # 单域适应模式：使用指定域的参数
             mu = self.domain_mu[domain_idx]
             logvar = self.domain_logvar[domain_idx]
             importance = F.softplus(self.domain_importance[domain_idx])
             
-            # 从高斯分布中采样参数：mu + eps * std
-            std = torch.exp(0.5 * logvar)  # 从对数方差计算标准差
-            eps = torch.randn_like(std)    # 生成与标准差相同形状的随机噪声
-            domain_params = mu + eps * std  # 采样得到域特定参数
+            std = torch.exp(0.5 * logvar)
+            eps = torch.randn_like(std)
+            domain_params = mu + eps * std
             
-            # 使用采样的参数调整特征，并应用域重要性权重
             adapted_features = features * (domain_params * importance.unsqueeze(-1))
         else:
-            # 混合域适应模式：融合所有域的信息
-            domain_weights = F.softmax(self.domain_importance, dim=0)  # 将重要性转换为权重
-            
-            # 计算混合域的均值和对数方差
+            domain_weights = F.softmax(self.domain_importance, dim=0)
             mixed_mu = torch.sum(self.domain_mu * domain_weights.unsqueeze(1), dim=0)
             mixed_logvar = torch.sum(self.domain_logvar * domain_weights.unsqueeze(1), dim=0)
             
-            # 从混合高斯分布中采样参数
             std = torch.exp(0.5 * mixed_logvar)
             eps = torch.randn_like(std)
             domain_params = mixed_mu + eps * std
             
-            # 使用混合参数调整特征
             adapted_features = features * domain_params
         
-        # 通过基础网络进一步处理适应后的特征
         return self.domain_adapter_base(adapted_features)
     
     def forward(self, x, domain_idx=None):
         batch_size, num_buildings, seq_len, _ = x.shape
+        
+        # 拆分能耗和天气
+        energy = x[..., 0].unsqueeze(-1)     # 电耗 [B,N,T,1]
+        weather = x[..., 1:]                 # 天气 [B,N,T,5]
+    
+        # 调整形状以便编码
         x_reshaped = x.view(batch_size * num_buildings, seq_len, self.input_dim)
-        
-        # 1. 多尺度特征提取：获取融合后的多尺度特征
+        weather_reshaped = weather.view(batch_size * num_buildings, seq_len, self.input_dim - 1)
+    
+        # 1. 多尺度特征提取
         adjusted_features = self.multi_scale_encoder(x_reshaped)
-        
-        # 2. 时间注意力：应用自注意力机制捕获时间依赖关系
-        # 注意：输入需要调整为 (seq_len, batch, feature) 的格式
-        attended_features, _ = self.temporal_attention(
-            adjusted_features.transpose(0, 1),  # 查询
-            adjusted_features.transpose(0, 1),  # 键
-            adjusted_features.transpose(0, 1)   # 值
-        )
-        # 将输出转回 (batch, seq_len, feature) 的格式
-        attended_features = attended_features.transpose(0, 1)
-        
-        # 3. 特征融合：将多尺度特征和时间注意力特征拼接并融合
+    
+        # 2. 时序依赖模块（卷积+天气偏置）
+        attended_features = self.temporal_dependency(adjusted_features, weather_reshaped)
+    
+        # 3. 特征融合
         fused_features = self.feature_fusion(
             torch.cat([adjusted_features, attended_features], dim=-1)
         )
-        
-        # 4. 贝叶斯域适应：对每个时间步的特征应用域适应
+    
+        # 4. 贝叶斯域适应
         adapted_features = []
         for t in range(seq_len):
-            t_feat = fused_features[:, t, :]  # 获取当前时间步的特征
-            t_adapted = self.bayesian_domain_adapt(t_feat, domain_idx)  # 应用域适应
+            t_feat = fused_features[:, t, :]
+            t_adapted = self.bayesian_domain_adapt(t_feat, domain_idx)
             adapted_features.append(t_adapted)
-        # fused_features_reshaped = fused_features.view(-1, self.hidden_dim)  # [batch*seq_len, hidden_dim]
-        # adapted_features_reshaped = self.bayesian_domain_adapt(fused_features_reshaped, domain_idx)
-        # adapted_features = adapted_features_reshaped.view(batch_size, seq_len, self.hidden_dim)
-        # 将各时间步的特征重新组合成序列
         adapted_features = torch.stack(adapted_features, dim=1)
-        
-        # 恢复原始的批次和建筑物维度
+    
         return adapted_features.view(batch_size, num_buildings, seq_len, self.hidden_dim)
 
 class BiLSTMPredictor(nn.Module):
