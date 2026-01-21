@@ -1,0 +1,97 @@
+{
+  "total_train_buildings": 25,
+  "existing_train_buildings": 25,
+  "missing_buildings": [],
+  "building_list_by_type": {
+    "DO": {
+      "train_buildings": [
+        "Hog_lodging_Brian",
+        "Hog_lodging_Nikki",
+        "Hog_lodging_Ora",
+        "Robin_lodging_Celia",
+        "Robin_lodging_Elmer"
+      ],
+      "existing_count": 5,
+      "missing_count": 0
+    },
+    "HO": {
+      "train_buildings": [
+        "Hog_health_Hisako",
+        "Hog_health_Jenny",
+        "Hog_health_Kesha",
+        "Rat_health_Gaye",
+        "Rat_health_Guy"
+      ],
+      "existing_count": 5,
+      "missing_count": 0
+    },
+    "LI": {
+      "train_buildings": [
+        "Rat_public_Chrissy",
+        "Eagle_public_Pearle",
+        "Hog_public_Crystal",
+        "Hog_public_Kevin",
+        "Hog_public_Octavia"
+      ],
+      "existing_count": 5,
+      "missing_count": 0
+    },
+    "OF": {
+      "train_buildings": [
+        "Eagle_office_Ryan",
+        "Rat_office_Tracy",
+        "Robin_office_Lindsay",
+        "Wolf_office_Bobbie",
+        "Hog_office_Sung"
+      ],
+      "existing_count": 5,
+      "missing_count": 0
+    },
+    "UL": {
+      "train_buildings": [
+        "Hog_education_Hallie",
+        "Hog_education_Haywood",
+        "Hog_education_Janell",
+        "Hog_education_Rachael",
+        "Hog_education_Wayne"
+      ],
+      "existing_count": 5,
+      "missing_count": 0
+    }
+  },
+  "existing_buildings": [
+    "Hog_lodging_Brian",
+    "Hog_lodging_Nikki",
+    "Hog_lodging_Ora",
+    "Robin_lodging_Celia",
+    "Robin_lodging_Elmer",
+    "Hog_health_Hisako",
+    "Hog_health_Jenny",
+    "Hog_health_Kesha",
+    "Rat_health_Gaye",
+    "Rat_health_Guy",
+    "Rat_public_Chrissy",
+    "Eagle_public_Pearle",
+    "Hog_public_Crystal",
+    "Hog_public_Kevin",
+    "Hog_public_Octavia",
+    "Eagle_office_Ryan",
+    "Rat_office_Tracy",
+    "Robin_office_Lindsay",
+    "Wolf_office_Bobbie",
+    "Hog_office_Sung",
+    "Hog_education_Hallie",
+    "Hog_education_Haywood",
+    "Hog_education_Janell",
+    "Hog_education_Rachael",
+    "Hog_education_Wayne"
+  ],
+  "data_info": {
+    "total_rows": 17544,
+    "total_columns": 26,
+    "time_range": {
+      "start": "2016-01-01 00:00:00",
+      "end": "2017-12-31 23:00:00"
+    }
+  }
+}
