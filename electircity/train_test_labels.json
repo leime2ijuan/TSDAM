@@ -1,0 +1,68 @@
+{
+  "DO": {
+    "train": [
+      "Hog_lodging_Brian",
+      "Hog_lodging_Nikki",
+      "Hog_lodging_Ora",
+      "Robin_lodging_Celia",
+      "Robin_lodging_Elmer"
+    ],
+    "test": [
+      "Robin_lodging_Renea"
+    ]
+  },
+  "HO": {
+    "train": [
+      "Hog_health_Hisako",
+      "Hog_health_Jenny",
+      "Hog_health_Kesha",
+      "Rat_health_Gaye",
+      "Rat_health_Guy"
+    ],
+    "test": [
+      "Rat_health_Shane"
+    ]
+  },
+  "LI": {
+    "train": [
+      "Rat_public_Chrissy",
+      "Eagle_public_Pearle",
+      "Hog_public_Crystal",
+      "Hog_public_Kevin",
+      "Hog_public_Octavia"
+    ],
+    "test": [
+      "Rat_public_Roma"
+    ]
+  },
+  "OF": {
+    "train": [
+      "Eagle_office_Ryan",
+      "Rat_office_Tracy",
+      "Robin_office_Lindsay",
+      "Wolf_office_Bobbie",
+      "Hog_office_Sung"
+    ],
+    "test": [
+      "Wolf_office_Cary"
+    ]
+  },
+  "UL": {
+    "train": [
+      "Hog_education_Hallie",
+      "Hog_education_Haywood",
+      "Hog_education_Janell",
+      "Hog_education_Rachael",
+      "Hog_education_Wayne"
+    ],
+    "test": [
+      "Robin_education_Zenia"
+    ]
+  },
+  "CC": {
+    "train": null,
+    "test": [
+      "Gator_public_Leroy"
+    ]
+  }  
+}
